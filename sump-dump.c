@@ -621,6 +621,8 @@ static void argerr(struct args* args, char* msg) {
 		"divisor <num>: clock divisor to use for capture rate (default = 1).\n"
 		"samples <num>: number of samples to capture (default = max possible).\n"
 		"before <num>: number of samples (out of those captured) to return preceding the trigger (default = 4).\n"
+		"after <num>: number of samples (out of those captured) to return after the trigger (default = samples - before)\n"
+		"  This takes precedence over 'before'\n"
 		"rle: enable RLE sample compression (EXPERIMENTAL) (default = false).\n"
 		"raw: dump sample data in binary to stdout (default = false).\n"
 		"vcd name=mask,mask..: dump samples in VCD format.\n"
@@ -643,6 +645,9 @@ int main(int argc, char** argv)
 	if(argc < 2) {
 		argerr(&args, NULL);
 	}
+
+	/* Only used to derive cfg.before_trig */
+	uint32_t after_trig = UINT32_MAX;
 
 	struct cfg cfg = {
 		.trigger_mask = 0, .trigger_value = 0,
@@ -674,6 +679,9 @@ int main(int argc, char** argv)
 		}
 		else if(strcmp(opt, "before") == 0) {
 			args_number(&args, &cfg.before_trig, "Invalid before trigger samples count");
+		}
+		else if(strcmp(opt, "after") == 0) {
+			args_number(&args, &after_trig, "Invalid after trigger samples count");
 		}
 		else if(strcmp(opt, "rle") == 0) {
 			cfg.rle = true;
@@ -733,6 +741,11 @@ int main(int argc, char** argv)
 	/* Default to max samples */
 	if(cfg.samples == 0) {
 		cfg.samples = cfg.sample_memory / cfg.num_groups_enabled;
+	}
+
+	/* after_trig overrides before_trig */
+	if(after_trig != UINT32_MAX) {
+		cfg.before_trig = cfg.samples - (after_trig > cfg.samples? cfg.samples : after_trig);
 	}
 
 	if(cfg.group_enable > cfg.group_mask) {
